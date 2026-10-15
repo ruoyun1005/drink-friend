@@ -388,3 +388,75 @@ export async function savePaymentAccount(
     .upsert({ round_id: roundId, payment_account: account });
   if (error) throw error;
 }
+
+// --- 開團表單（F-10 ~ F-15） -------------------------------------------
+
+export type Platform = "you_order" | "uber_eats" | "foodpanda" | "shop_own";
+
+export type ShopOption = { id: string; name: string };
+
+export async function fetchShops(supabase: SupabaseClient): Promise<ShopOption[]> {
+  const { data, error } = await supabase.from("shops").select("id, name").order("name");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createShop(supabase: SupabaseClient, name: string, viewerId: string) {
+  const { data, error } = await supabase
+    .from("shops")
+    .insert({ name, created_by: viewerId })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+export type NewRoundInput = {
+  hostId: string;
+  shopId: string;
+  platform: Platform;
+  groupOrderUrl: string;
+  mode: PickupMode;
+  deadlineAt: string;
+  circleId?: string;
+  // 外送
+  freeShippingThreshold?: number;
+  deliveryFee?: number;
+  deliverTo?: string;
+  // 自取
+  pickupTime?: string;
+  pickupLocation?: string;
+  pickupPerson?: string;
+};
+
+export async function createRound(supabase: SupabaseClient, input: NewRoundInput): Promise<string> {
+  const { data, error } = await supabase
+    .from("rounds")
+    .insert({
+      host_id: input.hostId,
+      shop_id: input.shopId,
+      platform: input.platform,
+      group_order_url: input.groupOrderUrl,
+      mode: input.mode,
+      deadline_at: input.deadlineAt,
+      circle_id: input.circleId ?? null,
+      free_shipping_threshold: input.freeShippingThreshold ?? null,
+      delivery_fee: input.deliveryFee ?? null,
+      deliver_to: input.deliverTo ?? null,
+      pickup_time: input.pickupTime ?? null,
+      pickup_location: input.pickupLocation ?? null,
+      pickup_person: input.pickupPerson ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+
+  const { error: memberError } = await supabase
+    .from("round_members")
+    .insert({ round_id: data.id, user_id: input.hostId });
+
+  if (memberError) throw memberError;
+
+  return data.id as string;
+}
