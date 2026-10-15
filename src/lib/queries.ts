@@ -511,6 +511,25 @@ export async function joinRound(
   }
 }
 
+// 一團結單後，成員自動組成團友圈（F-40）；如果這團已經掛在某個團友圈底下
+// （續團），就只需要把尚未加入的成員補進去，不用再建一個新的。
+// 這整段用 RPC 一次做完（見 supabase/patches/005_close_round_rpc.sql）——
+// 分成多次 client 端呼叫會卡在 RLS 死結：PostgREST 用 return=representation
+// 寫入 circles 後，會順便用 SELECT policy 把那筆資料讀回來，但新建立的
+// circle 這時候還沒有任何成員，SELECT policy 當然擋住，導致整個 INSERT
+// 被回報成 RLS violation。
+export async function closeRoundAndFormCircle(
+  supabase: SupabaseClient,
+  roundId: string,
+  defaultCircleName: string,
+) {
+  const { error } = await supabase.rpc("close_round_and_form_circle", {
+    p_round_id: roundId,
+    p_default_circle_name: defaultCircleName,
+  });
+  if (error) throw error;
+}
+
 // --- 個人頁（我） --------------------------------------------------------
 
 export type UserProfile = {
