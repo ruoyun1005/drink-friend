@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { FaLink } from "react-icons/fa6";
+import { FaEdit } from "react-icons/fa";
 import { useViewer } from "@/hooks/useViewer";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -15,6 +16,7 @@ import {
   markPaid,
   removeMember,
   savePaymentAccount,
+  updateDeadline,
   type CommentItem,
   type RoundDetail,
 } from "@/lib/queries";
@@ -27,6 +29,11 @@ function formatTimestamp(iso: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function toLocalInputValue(date: Date) {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 export default function RoundPageClient({ roundId }: { roundId: string }) {
@@ -43,6 +50,8 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
   const [busy, setBusy] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const closingRef = useRef(false);
+  const [editingDeadline, setEditingDeadline] = useState(false);
+  const [deadlineInput, setDeadlineInput] = useState("");
 
   const reload = useCallback(async () => {
     if (!viewerId) return;
@@ -150,6 +159,26 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
     }
   }
 
+  function openDeadlineEditor() {
+    if (!round) return;
+    setDeadlineInput(toLocalInputValue(new Date(round.deadline)));
+    setEditingDeadline(true);
+  }
+
+  async function handleSaveDeadline() {
+    if (!deadlineInput) return;
+    setBusy(true);
+    try {
+      await updateDeadline(createClient(), roundId, new Date(deadlineInput).toISOString());
+      setEditingDeadline(false);
+      await reload();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "更新結單時間失敗");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handlePostComment(content: string) {
     if (!viewerId || !content.trim()) return;
     setBusy(true);
@@ -203,11 +232,46 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
           </div>
           <div className="text-right">
             <div className="text-[10.5px] text-text-soft">{isClosed ? "已結單" : "結單倒數"}</div>
-            <div className="text-lg font-extrabold tabular-nums text-accent-strong">
-              {isClosed || now === null ? (isClosed ? "已結單" : " ") : formatCountdown(round.deadline, now)}
+            <div className="flex items-center gap-1.5">
+              <div className="text-lg font-extrabold tabular-nums text-accent-strong">
+                {isClosed || now === null ? (isClosed ? "已結單" : " ") : formatCountdown(round.deadline, now)}
+              </div>
+              {isHost && !isClosed && (
+                <button
+                  onClick={openDeadlineEditor}
+                  aria-label="改結單時間"
+                  className="text-text-soft"
+                >
+                  <FaEdit size={14} />
+                </button>
+              )}
             </div>
           </div>
         </div>
+
+        {isHost && editingDeadline && (
+          <div className="flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2.5">
+            <input
+              type="datetime-local"
+              value={deadlineInput}
+              onChange={(e) => setDeadlineInput(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+            />
+            <button
+              disabled={busy || !deadlineInput}
+              onClick={handleSaveDeadline}
+              className="flex-shrink-0 rounded-full bg-accent px-3.5 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+            >
+              儲存
+            </button>
+            <button
+              onClick={() => setEditingDeadline(false)}
+              className="flex-shrink-0 text-xs text-text-soft"
+            >
+              取消
+            </button>
+          </div>
+        )}
 
         {round.groupOrderUrl && !isClosed && (
           <a
