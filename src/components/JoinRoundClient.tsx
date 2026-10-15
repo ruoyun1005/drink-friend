@@ -66,7 +66,7 @@ export default function JoinRoundClient({ roundId }: { roundId: string }) {
     try {
       const supabase = createClient();
       await updateNickname(supabase, viewerId, nickname.trim());
-      await joinRound(supabase, roundId, viewerId);
+      await joinRound(supabase, roundId, viewerId, round?.circleId);
       router.push(`/rounds/${roundId}`);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "加入失敗");

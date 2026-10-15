@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useViewer } from "@/hooks/useViewer";
 import { createClient } from "@/lib/supabase/client";
-import { createRound, createShop, fetchShops, type Platform, type ShopOption } from "@/lib/queries";
+import {
+  createRound,
+  createShop,
+  fetchCircleNotifyCandidates,
+  fetchShops,
+  type NotifyCandidate,
+  type Platform,
+  type ShopOption,
+} from "@/lib/queries";
 import type { PickupMode } from "@/lib/types";
 
 const PLATFORM_LABELS: Record<Platform, string> = {
@@ -44,13 +52,37 @@ export default function NewRoundForm({ circleId }: { circleId?: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [notifyCandidates, setNotifyCandidates] = useState<NotifyCandidate[] | null>(null);
+  const [notifySelection, setNotifySelection] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     if (!viewerId) return;
     const supabase = createClient();
     fetchShops(supabase)
       .then(setShops)
       .catch((err) => setError(err instanceof Error ? err.message : "讀取店家失敗"));
-  }, [viewerId]);
+
+    if (circleId) {
+      fetchCircleNotifyCandidates(supabase, circleId, viewerId)
+        .then((candidates) => {
+          setNotifyCandidates(candidates);
+          setNotifySelection(new Set(candidates.map((c) => c.id)));
+        })
+        .catch((err) => setError(err instanceof Error ? err.message : "讀取團友圈成員失敗"));
+    }
+  }, [viewerId, circleId]);
+
+  function toggleNotify(memberId: string) {
+    setNotifySelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) {
+        next.delete(memberId);
+      } else {
+        next.add(memberId);
+      }
+      return next;
+    });
+  }
 
   const canSubmit =
     !!viewerId &&
@@ -82,6 +114,7 @@ export default function NewRoundForm({ circleId }: { circleId?: string }) {
         pickupTime: mode === "pickup" ? new Date(pickupTime).toISOString() : undefined,
         pickupLocation: mode === "pickup" ? pickupLocation.trim() : undefined,
         pickupPerson: mode === "pickup" ? pickupPerson.trim() : undefined,
+        notifyMemberIds: circleId ? Array.from(notifySelection) : undefined,
       });
 
       router.push(`/rounds/${roundId}`);
@@ -265,6 +298,35 @@ export default function NewRoundForm({ circleId }: { circleId?: string }) {
             />
           </div>
         </>
+      )}
+
+      {circleId && notifyCandidates !== null && notifyCandidates.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[13px] font-bold text-text-soft">要通知誰？</label>
+          <div className="flex flex-col gap-1.5">
+            {notifyCandidates.map((member) => (
+              <label
+                key={member.id}
+                className="flex items-center justify-between gap-2 rounded-xl border border-border bg-surface px-3 py-2.5"
+              >
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={notifySelection.has(member.id)}
+                    onChange={() => toggleNotify(member.id)}
+                  />
+                  <span className="text-sm">{member.nickname}</span>
+                </span>
+                <span className="text-[11px] text-text-soft">
+                  {member.pushEnabled ? "已開推播" : "未開推播・需私訊連結"}
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-text-soft">
+            勾選的人會直接加入這一團；沒開推播的人記得開團後用「邀請連結」私訊給他們。
+          </p>
+        </div>
       )}
 
       <button

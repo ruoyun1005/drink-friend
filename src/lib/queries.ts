@@ -30,6 +30,7 @@ type RawRound = {
   status: string;
   group_order_url?: string;
   host_id?: string;
+  circle_id?: string | null;
   free_shipping_threshold: number | null;
   delivery_fee: number | null;
   deliver_to: string | null;
@@ -207,6 +208,7 @@ export type RoundDetail = {
   platform: string;
   groupOrderUrl: string;
   status: string;
+  circleId: string | null;
   hostId: string;
   hostNickname: string;
   mode: PickupMode;
@@ -227,7 +229,7 @@ export async function fetchRoundDetail(
   const { data, error } = await supabase
     .from("rounds")
     .select(
-      `id, mode, deadline_at, platform, status, group_order_url, host_id,
+      `id, mode, deadline_at, platform, status, group_order_url, host_id, circle_id,
        free_shipping_threshold, delivery_fee, deliver_to,
        pickup_time, pickup_location, pickup_person,
        shops ( name ),
@@ -263,6 +265,7 @@ export async function fetchRoundDetail(
     platform: round.platform,
     groupOrderUrl: round.group_order_url ?? "",
     status: round.status,
+    circleId: round.circle_id ?? null,
     hostId: round.host_id ?? "",
     hostNickname: round.host?.nickname ?? "?",
     mode: round.mode,
@@ -427,6 +430,7 @@ export type NewRoundInput = {
   pickupTime?: string;
   pickupLocation?: string;
   pickupPerson?: string;
+  notifyMemberIds?: string[];
 };
 
 export async function createRound(supabase: SupabaseClient, input: NewRoundInput): Promise<string> {
@@ -452,9 +456,13 @@ export async function createRound(supabase: SupabaseClient, input: NewRoundInput
 
   if (error) throw error;
 
-  const { error: memberError } = await supabase
-    .from("round_members")
-    .insert({ round_id: data.id, user_id: input.hostId });
+  const notifyIds = (input.notifyMemberIds ?? []).filter((id) => id !== input.hostId);
+  const memberRows = [input.hostId, ...notifyIds].map((userId) => ({
+    round_id: data.id,
+    user_id: userId,
+  }));
+
+  const { error: memberError } = await supabase.from("round_members").insert(memberRows);
 
   if (memberError) throw memberError;
 
@@ -483,11 +491,24 @@ export async function isRoundMember(
   return data !== null;
 }
 
-export async function joinRound(supabase: SupabaseClient, roundId: string, viewerId: string) {
+export async function joinRound(
+  supabase: SupabaseClient,
+  roundId: string,
+  viewerId: string,
+  circleId?: string | null,
+) {
   const { error } = await supabase
     .from("round_members")
     .upsert({ round_id: roundId, user_id: viewerId }, { onConflict: "round_id,user_id" });
   if (error) throw error;
+
+  // 續團時，透過連結加入的人預設自動成為團友圈成員（F-41）。
+  if (circleId) {
+    const { error: circleError } = await supabase
+      .from("circle_members")
+      .upsert({ circle_id: circleId, user_id: viewerId }, { onConflict: "circle_id,user_id" });
+    if (circleError) throw circleError;
+  }
 }
 
 // --- 個人頁（我） --------------------------------------------------------
@@ -561,6 +582,34 @@ type RawCircleWithMembers = {
   name: string;
   circle_members: RawCircleMember[];
 };
+
+export type NotifyCandidate = Member & { pushEnabled: boolean };
+
+export async function fetchCircleNotifyCandidates(
+  supabase: SupabaseClient,
+  circleId: string,
+  excludeUserId: string,
+): Promise<NotifyCandidate[]> {
+  const { data, error } = await supabase
+    .from("circle_members")
+    .select("user_id, users ( nickname, push_enabled )")
+    .eq("circle_id", circleId);
+
+  if (error) throw error;
+
+  return ((data ?? []) as unknown as {
+    user_id: string;
+    users: { nickname: string; push_enabled: boolean } | null;
+  }[])
+    .filter((row) => row.user_id !== excludeUserId)
+    .map((row, i) => ({
+      id: row.user_id,
+      nickname: row.users?.nickname ?? "?",
+      avatarColor: colorForIndex(i),
+      ordered: false,
+      pushEnabled: row.users?.push_enabled ?? false,
+    }));
+}
 
 export async function fetchCircleDetail(
   supabase: SupabaseClient,
