@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #ece8de;
-  --surface: #faf8f2;
-  --surface-sunk: #e3e0d4;
-  --text: #201e18;
-  --text-soft: #817a6a;
-  --border: #d9d4c5;
+  --bg: #e7e6e0;
+  --surface: #f6f5f1;
+  --surface-sunk: #dddbd3;
+  --text: #1e1f1c;
+  --text-soft: #78786d;
+  --border: #d2d1c8;
   --accent: #55684a;
   --accent-strong: #3f4f37;
   --accent-soft: #e2e7d6;
@@ -17,12 +17,12 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1b1d17;
-    --surface: #24261f;
-    --surface-sunk: #2c2e25;
-    --text: #ece8de;
-    --text-soft: #9b9684;
-    --border: #3a3c31;
+    --bg: #191b18;
+    --surface: #222420;
+    --surface-sunk: #2a2c27;
+    --text: #e7e6e0;
+    --text-soft: #96968a;
+    --border: #383a34;
     --accent: #8fa67e;
     --accent-strong: #aac29a;
     --accent-soft: #333d2b;
@@ -33,12 +33,12 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #1b1d17;
-  --surface: #24261f;
-  --surface-sunk: #2c2e25;
-  --text: #ece8de;
-  --text-soft: #9b9684;
-  --border: #3a3c31;
+  --bg: #191b18;
+  --surface: #222420;
+  --surface-sunk: #2a2c27;
+  --text: #e7e6e0;
+  --text-soft: #96968a;
+  --border: #383a34;
   --accent: #8fa67e;
   --accent-strong: #aac29a;
   --accent-soft: #333d2b;

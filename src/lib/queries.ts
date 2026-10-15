@@ -28,6 +28,8 @@ type RawRound = {
   deadline_at: string;
   platform: string;
   status: string;
+  group_order_url?: string;
+  host_id?: string;
   free_shipping_threshold: number | null;
   delivery_fee: number | null;
   deliver_to: string | null;
@@ -192,4 +194,197 @@ export async function fetchViewerCircles(
       members,
     } satisfies Circle;
   });
+}
+
+// --- 團頁面（F-20 ~ F-35） -------------------------------------------
+
+export type RoundMemberDetail = Member & { amount: number | null; paid: boolean };
+
+export type RoundDetail = {
+  id: string;
+  name: string;
+  shopName: string;
+  platform: string;
+  groupOrderUrl: string;
+  status: string;
+  hostId: string;
+  hostNickname: string;
+  mode: PickupMode;
+  deadline: string;
+  freeShippingThreshold?: number;
+  currentTotal: number;
+  deliverTo?: string;
+  pickupTime?: string;
+  pickupLocation?: string;
+  pickupPerson?: string;
+  members: RoundMemberDetail[];
+};
+
+export async function fetchRoundDetail(
+  supabase: SupabaseClient,
+  roundId: string,
+): Promise<RoundDetail | null> {
+  const { data, error } = await supabase
+    .from("rounds")
+    .select(
+      `id, mode, deadline_at, platform, status, group_order_url, host_id,
+       free_shipping_threshold, delivery_fee, deliver_to,
+       pickup_time, pickup_location, pickup_person,
+       shops ( name ),
+       circles ( name ),
+       host:users!rounds_host_id_fkey ( nickname ),
+       round_members ( user_id, ordered, paid, amount, users ( nickname ) )`,
+    )
+    .eq("id", roundId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  const round = data as unknown as RawRound;
+
+  const members: RoundMemberDetail[] = round.round_members.map((rm, i) => ({
+    id: rm.user_id,
+    nickname: rm.users?.nickname ?? "?",
+    avatarColor: colorForIndex(i),
+    ordered: rm.ordered,
+    amount: rm.amount,
+    paid: rm.paid,
+  }));
+
+  const currentTotal = round.round_members
+    .filter((rm) => rm.ordered && rm.amount !== null)
+    .reduce((sum, rm) => sum + Number(rm.amount), 0);
+
+  return {
+    id: round.id,
+    name: round.circles?.name ?? round.shops?.name ?? "揪團",
+    shopName: round.shops?.name ?? "",
+    platform: round.platform,
+    groupOrderUrl: round.group_order_url ?? "",
+    status: round.status,
+    hostId: round.host_id ?? "",
+    hostNickname: round.host?.nickname ?? "?",
+    mode: round.mode,
+    deadline: round.deadline_at,
+    freeShippingThreshold: round.free_shipping_threshold ?? undefined,
+    currentTotal,
+    deliverTo: round.deliver_to ?? undefined,
+    pickupTime: round.pickup_time ?? undefined,
+    pickupLocation: round.pickup_location ?? undefined,
+    pickupPerson: round.pickup_person ?? undefined,
+    members,
+  };
+}
+
+export async function markOrdered(
+  supabase: SupabaseClient,
+  roundId: string,
+  viewerId: string,
+  amount: number,
+) {
+  const { error } = await supabase
+    .from("round_members")
+    .update({ ordered: true, amount })
+    .eq("round_id", roundId)
+    .eq("user_id", viewerId);
+  if (error) throw error;
+}
+
+export async function markPaid(
+  supabase: SupabaseClient,
+  roundId: string,
+  viewerId: string,
+  paid: boolean,
+) {
+  const { error } = await supabase
+    .from("round_members")
+    .update({ paid })
+    .eq("round_id", roundId)
+    .eq("user_id", viewerId);
+  if (error) throw error;
+}
+
+export async function removeMember(supabase: SupabaseClient, roundId: string, memberId: string) {
+  const { error } = await supabase
+    .from("round_members")
+    .delete()
+    .eq("round_id", roundId)
+    .eq("user_id", memberId);
+  if (error) throw error;
+}
+
+export type CommentItem = {
+  id: string;
+  userId: string;
+  nickname: string;
+  content: string;
+  createdAt: string;
+};
+
+type RawComment = {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  users: { nickname: string } | null;
+};
+
+export async function fetchComments(
+  supabase: SupabaseClient,
+  roundId: string,
+): Promise<CommentItem[]> {
+  const { data, error } = await supabase
+    .from("comments")
+    .select("id, user_id, content, created_at, users ( nickname )")
+    .eq("round_id", roundId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+
+  return ((data ?? []) as unknown as RawComment[]).map((c) => ({
+    id: c.id,
+    userId: c.user_id,
+    nickname: c.users?.nickname ?? "?",
+    content: c.content,
+    createdAt: c.created_at,
+  }));
+}
+
+export async function addComment(
+  supabase: SupabaseClient,
+  roundId: string,
+  viewerId: string,
+  content: string,
+) {
+  const { error } = await supabase
+    .from("comments")
+    .insert({ round_id: roundId, user_id: viewerId, content });
+  if (error) throw error;
+}
+
+export async function fetchPaymentAccount(
+  supabase: SupabaseClient,
+  roundId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("round_payment_info")
+    .select("payment_account")
+    .eq("round_id", roundId)
+    .maybeSingle();
+
+  // 沒權限（還沒點好了）時 Supabase 會回傳空結果而不是錯誤，這裡保守地把任何錯誤當作「看不到」處理。
+  if (error) return null;
+  return data?.payment_account ?? null;
+}
+
+export async function savePaymentAccount(
+  supabase: SupabaseClient,
+  roundId: string,
+  account: string,
+) {
+  const { error } = await supabase
+    .from("round_payment_info")
+    .upsert({ round_id: roundId, payment_account: account });
+  if (error) throw error;
 }
