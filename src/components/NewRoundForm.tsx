@@ -91,11 +91,15 @@ export default function NewRoundForm({ circleId }: { circleId?: string }) {
     }
   }
 
+  const displayError = viewerError ?? error;
+
+  if (displayError) {
+    return <p className="py-10 text-center text-sm text-warn-text">{displayError}</p>;
+  }
+
   if (viewerLoading || shops === null) {
     return <p className="py-10 text-center text-sm text-text-soft">載入中…</p>;
   }
-
-  const displayError = viewerError ?? error;
 
   return (
     <div className="flex flex-col gap-4 pb-4">
@@ -203,7 +207,7 @@ export default function NewRoundForm({ circleId }: { circleId?: string }) {
                 placeholder="500"
                 value={freeShippingThreshold}
                 onChange={(e) => setFreeShippingThreshold(e.target.value)}
-                className="rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none placeholder:text-text-soft"
+                className="w-full min-w-0 rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none placeholder:text-text-soft"
               />
             </div>
             <div className="flex flex-1 flex-col gap-1.5">
@@ -214,7 +218,7 @@ export default function NewRoundForm({ circleId }: { circleId?: string }) {
                 placeholder="0"
                 value={deliveryFee}
                 onChange={(e) => setDeliveryFee(e.target.value)}
-                className="rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none placeholder:text-text-soft"
+                className="w-full min-w-0 rounded-xl border border-border bg-surface px-3 py-2.5 text-sm outline-none placeholder:text-text-soft"
               />
             </div>
           </div>
