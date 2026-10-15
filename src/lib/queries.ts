@@ -489,3 +489,135 @@ export async function joinRound(supabase: SupabaseClient, roundId: string, viewe
     .upsert({ round_id: roundId, user_id: viewerId }, { onConflict: "round_id,user_id" });
   if (error) throw error;
 }
+
+// --- 個人頁（我） --------------------------------------------------------
+
+export type UserProfile = {
+  nickname: string;
+  pushEnabled: boolean;
+  defaultPaymentAccount: string | null;
+};
+
+export async function fetchUserProfile(
+  supabase: SupabaseClient,
+  viewerId: string,
+): Promise<UserProfile> {
+  const [{ data: userRow, error: userError }, { data: settingsRow, error: settingsError }] =
+    await Promise.all([
+      supabase.from("users").select("nickname, push_enabled").eq("id", viewerId).single(),
+      supabase
+        .from("user_settings")
+        .select("default_payment_account")
+        .eq("user_id", viewerId)
+        .maybeSingle(),
+    ]);
+
+  if (userError) throw userError;
+  if (settingsError) throw settingsError;
+
+  return {
+    nickname: userRow.nickname,
+    pushEnabled: userRow.push_enabled,
+    defaultPaymentAccount: settingsRow?.default_payment_account ?? null,
+  };
+}
+
+export async function updatePushEnabled(supabase: SupabaseClient, viewerId: string, enabled: boolean) {
+  const { error } = await supabase.from("users").update({ push_enabled: enabled }).eq("id", viewerId);
+  if (error) throw error;
+}
+
+export async function saveDefaultPaymentAccount(
+  supabase: SupabaseClient,
+  viewerId: string,
+  account: string,
+) {
+  const { error } = await supabase
+    .from("user_settings")
+    .upsert({ user_id: viewerId, default_payment_account: account }, { onConflict: "user_id" });
+  if (error) throw error;
+}
+
+// --- 團友圈詳情頁（F-40 ~ F-46） -----------------------------------------
+
+export type CircleRoundSummary = {
+  id: string;
+  name: string;
+  shopName: string;
+  status: string;
+  deadline: string;
+  createdAt: string;
+};
+
+export type CircleDetail = {
+  id: string;
+  name: string;
+  members: Member[];
+  rounds: CircleRoundSummary[];
+};
+
+type RawCircleWithMembers = {
+  id: string;
+  name: string;
+  circle_members: RawCircleMember[];
+};
+
+export async function fetchCircleDetail(
+  supabase: SupabaseClient,
+  circleId: string,
+): Promise<CircleDetail | null> {
+  const { data: circleRow, error: circleError } = await supabase
+    .from("circles")
+    .select("id, name, circle_members ( user_id, users ( nickname ) )")
+    .eq("id", circleId)
+    .maybeSingle();
+
+  if (circleError) throw circleError;
+  if (!circleRow) return null;
+
+  const circle = circleRow as unknown as RawCircleWithMembers;
+
+  const { data: roundRows, error: roundError } = await supabase
+    .from("rounds")
+    .select("id, status, deadline_at, created_at, shops ( name ), circles ( name )")
+    .eq("circle_id", circleId)
+    .order("created_at", { ascending: false });
+
+  if (roundError) throw roundError;
+
+  const members: Member[] = circle.circle_members.map((cm, i) => ({
+    id: cm.user_id,
+    nickname: cm.users?.nickname ?? "?",
+    avatarColor: colorForIndex(i),
+    ordered: true,
+  }));
+
+  const rounds: CircleRoundSummary[] = (
+    (roundRows ?? []) as unknown as {
+      id: string;
+      status: string;
+      deadline_at: string;
+      created_at: string;
+      shops: { name: string } | null;
+      circles: { name: string } | null;
+    }[]
+  ).map((r) => ({
+    id: r.id,
+    name: r.circles?.name ?? r.shops?.name ?? "揪團",
+    shopName: r.shops?.name ?? "",
+    status: r.status,
+    deadline: r.deadline_at,
+    createdAt: r.created_at,
+  }));
+
+  return { id: circle.id, name: circle.name, members, rounds };
+}
+
+export async function leaveCircle(supabase: SupabaseClient, circleId: string, viewerId: string) {
+  const { error } = await supabase
+    .from("circle_members")
+    .delete()
+    .eq("circle_id", circleId)
+    .eq("user_id", viewerId);
+  if (error) throw error;
+}
