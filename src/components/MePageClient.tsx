@@ -7,9 +7,9 @@ import {
   fetchUserProfile,
   saveDefaultPaymentAccount,
   updateNickname,
-  updatePushEnabled,
   type UserProfile,
 } from "@/lib/queries";
+import { disablePush, enablePush } from "@/lib/push";
 
 export default function MePageClient() {
   const { viewerId, loading: viewerLoading, error: viewerError } = useViewer();
@@ -55,8 +55,13 @@ export default function MePageClient() {
   async function handleTogglePush(enabled: boolean) {
     if (!viewerId) return;
     setBusy(true);
+    setLoadError(null);
     try {
-      await updatePushEnabled(createClient(), viewerId, enabled);
+      if (enabled) {
+        await enablePush(createClient(), viewerId);
+      } else {
+        await disablePush(createClient(), viewerId);
+      }
       setProfile((p) => (p ? { ...p, pushEnabled: enabled } : p));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "更新失敗");

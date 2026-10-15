@@ -21,6 +21,7 @@ import {
   type RoundDetail,
 } from "@/lib/queries";
 import { formatCountdown } from "@/lib/formatCountdown";
+import { sendPush } from "@/lib/sendPush";
 
 function formatTimestamp(iso: string) {
   return new Date(iso).toLocaleString("zh-TW", {
@@ -179,20 +180,25 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
     }
   }
 
-  async function handlePostComment(content: string) {
+  async function handlePostComment(content: string, pushUserIds?: string[]) {
     if (!viewerId || !content.trim()) return;
     setBusy(true);
     try {
       await addComment(createClient(), roundId, viewerId, content.trim());
       setCommentInput("");
       await reload();
+      if (pushUserIds && pushUserIds.length > 0) {
+        sendPush(pushUserIds, round.name, content.trim(), `/rounds/${roundId}`);
+      }
     } finally {
       setBusy(false);
     }
   }
 
-  const notOrderedNames = round.members.filter((m) => !m.ordered).map((m) => m.nickname);
-  const unpaidNames = round.members.filter((m) => m.ordered && !m.paid).map((m) => m.nickname);
+  const notOrderedMembers = round.members.filter((m) => !m.ordered);
+  const unpaidMembers = round.members.filter((m) => m.ordered && !m.paid);
+  const notOrderedNames = notOrderedMembers.map((m) => m.nickname);
+  const unpaidNames = unpaidMembers.map((m) => m.nickname);
 
   async function handleCopyInviteLink() {
     const url = `${window.location.origin}/rounds/${roundId}/join`;
@@ -384,7 +390,12 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
         {isHost && notOrderedNames.length > 0 && (
           <button
             disabled={busy}
-            onClick={() => handlePostComment(`提醒：${notOrderedNames.join("、")} 還沒點餐，記得去點喔！`)}
+            onClick={() =>
+              handlePostComment(
+                `提醒：${notOrderedNames.join("、")} 還沒點餐，記得去點喔！`,
+                notOrderedMembers.map((m) => m.id),
+              )
+            }
             className="self-start text-xs font-bold text-accent-strong underline"
           >
             一鍵提醒還沒點的人
@@ -394,7 +405,12 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
         {round.mode === "pickup" && (
           <button
             disabled={busy}
-            onClick={() => handlePostComment("🔔 我到店囉，可以來拿飲料了！")}
+            onClick={() =>
+              handlePostComment(
+                "🔔 我到店囉，可以來拿飲料了！",
+                round.members.filter((m) => m.id !== viewerId).map((m) => m.id),
+              )
+            }
             className="self-start text-xs font-bold text-accent-strong underline"
           >
             我到店了，發通知
@@ -448,7 +464,12 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
         {isHost && unpaidNames.length > 0 && (
           <button
             disabled={busy}
-            onClick={() => handlePostComment(`提醒：${unpaidNames.join("、")} 還沒付款喔！`)}
+            onClick={() =>
+              handlePostComment(
+                `提醒：${unpaidNames.join("、")} 還沒付款喔！`,
+                unpaidMembers.map((m) => m.id),
+              )
+            }
             className="self-start text-xs font-bold text-accent-strong underline"
           >
             一鍵提醒未付款的人
