@@ -2,15 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { FaHeart } from "react-icons/fa6";
+import { FaArrowUpRightFromSquare } from "react-icons/fa6";
 import { useViewer } from "@/hooks/useViewer";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchShopDetail,
   fetchShopDrinks,
   fetchViewerIsAnonymous,
+  fetchViewerLastDrinkAtShop,
+  fetchViewerLastOrderedAtShop,
   fetchViewerReview,
   upsertReview,
   type DrinkSummary,
+  type LastDrinkInfo,
   type Platform,
   type ShopDetail,
   type ViewerReview,
@@ -25,6 +30,10 @@ const PLATFORM_LABELS: Record<Platform, string> = {
 
 const SWEETNESS_OPTIONS = ["正常糖", "少糖", "半糖", "微糖", "無糖"];
 const ICE_OPTIONS = ["正常冰", "少冰", "微冰", "去冰", "溫", "熱"];
+
+function favoriteKey(shopId: string) {
+  return `you-drink:favorite:${shopId}`;
+}
 
 function StarRating({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
   return (
@@ -176,6 +185,9 @@ export default function BrandDetailClient({ shopId }: { shopId: string }) {
   const [shop, setShop] = useState<ShopDetail | null>(null);
   const [drinks, setDrinks] = useState<DrinkSummary[] | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(true);
+  const [lastOrderedLabel, setLastOrderedLabel] = useState<string | null>(null);
+  const [lastDrink, setLastDrink] = useState<LastDrinkInfo | null>(null);
+  const [favorite, setFavorite] = useState(false);
   const [category, setCategory] = useState<string>("全部");
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -186,8 +198,10 @@ export default function BrandDetailClient({ shopId }: { shopId: string }) {
       fetchShopDetail(supabase, shopId),
       fetchShopDrinks(supabase, shopId),
       fetchViewerIsAnonymous(supabase, viewerId),
+      fetchViewerLastOrderedAtShop(supabase, shopId, viewerId),
+      fetchViewerLastDrinkAtShop(supabase, shopId, viewerId),
     ])
-      .then(([s, d, anon]) => {
+      .then(([s, d, anon, lastOrdered, lastDrinkInfo]) => {
         if (!s) {
           setLoadError("找不到這家店");
           return;
@@ -195,11 +209,35 @@ export default function BrandDetailClient({ shopId }: { shopId: string }) {
         setShop(s);
         setDrinks(d);
         setIsAnonymous(anon);
+        setLastOrderedLabel(lastOrdered);
+        setLastDrink(lastDrinkInfo);
       })
       .catch((err) => setLoadError(err instanceof Error ? err.message : "讀取失敗"));
   }
 
   useEffect(reload, [viewerId, shopId]);
+
+  useEffect(() => {
+    try {
+      setFavorite(localStorage.getItem(favoriteKey(shopId)) === "1");
+    } catch {
+      // 私密瀏覽模式等情境下 localStorage 可能不可用，略過即可。
+    }
+  }, [shopId]);
+
+  function toggleFavorite() {
+    const next = !favorite;
+    setFavorite(next);
+    try {
+      if (next) {
+        localStorage.setItem(favoriteKey(shopId), "1");
+      } else {
+        localStorage.removeItem(favoriteKey(shopId));
+      }
+    } catch {
+      // 忽略寫入失敗；收藏狀態僅存在這個裝置上。
+    }
+  }
 
   const error = viewerError ?? loadError;
 
@@ -218,47 +256,96 @@ export default function BrandDetailClient({ shopId }: { shopId: string }) {
 
   return (
     <div className="flex flex-col gap-4 pb-4">
-      <div className="flex items-center gap-2">
-        <Link href="/brands" className="text-lg">
-          ←
+      <Link href="/brands" className="text-lg">
+        ←
+      </Link>
+
+      <div className="flex items-center gap-3">
+        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-surface-sunk text-[11px] text-text-soft">
+          店家 logo
+        </div>
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-black">{shop.name}</h1>
+          {lastOrderedLabel && (
+            <span className="mt-1 inline-block rounded-full bg-surface-sunk px-2.5 py-0.5 text-xs text-text-soft">
+              {lastOrderedLabel}訂購過
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Link
+          href={`/rounds/new?shopId=${shopId}`}
+          className="flex flex-1 items-center justify-center rounded-full bg-accent px-4 py-3 text-sm font-bold text-white"
+        >
+          用這家開團
         </Link>
-        <h1 className="flex-1 truncate text-lg font-bold">{shop.name}</h1>
+        <button
+          onClick={toggleFavorite}
+          className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-4 py-3 text-sm font-bold ${
+            favorite ? "border-accent text-accent-strong" : "border-border text-text-soft"
+          }`}
+        >
+          <FaHeart className={favorite ? "text-accent-strong" : "text-border"} />
+          {favorite ? "已收藏" : "收藏"}
+        </button>
       </div>
 
       {shop.platforms.length > 0 && (
         <section className="flex flex-col gap-2">
           <p className="text-[13px] font-bold text-text-soft">點餐平台</p>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
             {shop.platforms.map((p) => (
               <a
                 key={p.id}
                 href={p.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between gap-2 rounded-xl border border-border bg-surface px-3.5 py-2.5"
+                className="flex items-center gap-3 px-3.5 py-3"
               >
-                <span className="font-bold">{PLATFORM_LABELS[p.platform]}</span>
-                <span className="flex gap-1">
-                  {p.supportsDelivery && (
-                    <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-soft-text">
-                      外送
-                    </span>
-                  )}
-                  {p.supportsPickup && (
-                    <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-soft-text">
-                      自取
-                    </span>
-                  )}
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-surface-sunk text-sm font-bold text-text-soft">
+                  {PLATFORM_LABELS[p.platform].slice(0, 1)}
+                </div>
+                <span className="flex-1 truncate font-bold">{PLATFORM_LABELS[p.platform]}</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                    p.supportsPickup
+                      ? "bg-accent-soft text-accent-soft-text"
+                      : "bg-surface-sunk text-text-soft"
+                  }`}
+                >
+                  自取
                 </span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                    p.supportsDelivery
+                      ? "bg-accent-soft text-accent-soft-text"
+                      : "bg-surface-sunk text-text-soft"
+                  }`}
+                >
+                  外送
+                </span>
+                <FaArrowUpRightFromSquare className="flex-shrink-0 text-text-soft" size={12} />
               </a>
             ))}
           </div>
         </section>
       )}
 
+      {lastDrink && (
+        <div className="rounded-xl bg-accent-soft px-3.5 py-3">
+          <p className="text-xs font-bold text-accent-soft-text">我上次點的</p>
+          <p className="mt-0.5 text-sm font-bold text-accent-soft-text">
+            {lastDrink.drinkName} {lastDrink.sweetness} {lastDrink.ice}
+          </p>
+        </div>
+      )}
+
       <section className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <p className="text-[13px] font-bold text-text-soft">飲料品項</p>
+          <p className="text-[13px] font-bold text-text-soft">飲料評價</p>
+          <span className="text-xs text-text-soft">依評分排序 ↓</span>
         </div>
 
         {categories.length > 1 && (
@@ -277,9 +364,7 @@ export default function BrandDetailClient({ shopId }: { shopId: string }) {
           </div>
         )}
 
-        {!isAnonymous ? null : (
-          <p className="text-xs text-text-soft">綁定帳號（Google 登入）後才能評分</p>
-        )}
+        {isAnonymous && <p className="text-xs text-text-soft">綁定帳號（Google 登入）後才能評分</p>}
 
         {sorted.length === 0 ? (
           <p className="rounded-[18px] border border-dashed border-border px-4 py-8 text-center text-sm text-text-soft">
