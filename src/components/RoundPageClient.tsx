@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useViewer } from "@/hooks/useViewer";
 import { createClient } from "@/lib/supabase/client";
 import {
   addComment,
+  closeRoundAndFormCircle,
   fetchComments,
   fetchPaymentAccount,
   fetchRoundDetail,
@@ -40,6 +41,7 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
   const [commentInput, setCommentInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const closingRef = useRef(false);
 
   const reload = useCallback(async () => {
     if (!viewerId) return;
@@ -68,6 +70,23 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  // 結單時間一到，由團主的瀏覽器觸發：結單並自動組成團友圈（F-40）。
+  useEffect(() => {
+    if (!viewerId || !round || now === null) return;
+    if (round.hostId !== viewerId) return;
+    if (round.status !== "open") return;
+    if (new Date(round.deadline).getTime() > now) return;
+    if (closingRef.current) return;
+    closingRef.current = true;
+
+    closeRoundAndFormCircle(createClient(), round.id, `${round.hostNickname} 的團`)
+      .then(reload)
+      .catch((err) => {
+        closingRef.current = false;
+        setLoadError(err instanceof Error ? err.message : "結單失敗");
+      });
+  }, [viewerId, round, now, reload]);
 
   if (viewerError || loadError) {
     return <p className="py-10 text-center text-sm text-warn-text">{viewerError ?? loadError}</p>;
