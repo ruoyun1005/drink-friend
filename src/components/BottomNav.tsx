@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FaHouse, FaMugHot, FaLink, FaCircleUser, FaPlus } from "react-icons/fa6";
+import { FaHouse, FaMugHot, FaCircleUser, FaPlus } from "react-icons/fa6";
+import { FaUserFriends } from "react-icons/fa";
 import type { IconType } from "react-icons";
 
 const navItems = [
@@ -11,7 +12,7 @@ const navItems = [
 ] as const;
 
 const navItemsAfterFab = [
-  { href: "/circles", label: "續團", icon: FaLink },
+  { href: "/circles", label: "續團", icon: FaUserFriends },
   { href: "/me", label: "我", icon: FaCircleUser },
 ] as const;
 
