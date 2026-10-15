@@ -39,6 +39,7 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
   const [paymentAccountInput, setPaymentAccountInput] = useState("");
   const [commentInput, setCommentInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const reload = useCallback(async () => {
     if (!viewerId) return;
@@ -144,6 +145,17 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
   const notOrderedNames = round.members.filter((m) => !m.ordered).map((m) => m.nickname);
   const unpaidNames = round.members.filter((m) => m.ordered && !m.paid).map((m) => m.nickname);
 
+  async function handleCopyInviteLink() {
+    const url = `${window.location.origin}/rounds/${roundId}/join`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("複製這個邀請連結：", url);
+    }
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
+
   return (
     <div className="flex flex-col gap-4 pb-4">
       <div className="flex items-center gap-2">
@@ -151,6 +163,12 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
           ←
         </Link>
         <h1 className="flex-1 truncate text-lg font-bold">{round.name}</h1>
+        <button
+          onClick={handleCopyInviteLink}
+          className="flex-shrink-0 rounded-full border border-border px-2.5 py-1 text-xs font-bold text-text-soft"
+        >
+          {linkCopied ? "已複製" : "邀請連結"}
+        </button>
         <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-soft-text">
           {round.mode === "delivery" ? "外送" : "自取"}
         </span>

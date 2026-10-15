@@ -460,3 +460,32 @@ export async function createRound(supabase: SupabaseClient, input: NewRoundInput
 
   return data.id as string;
 }
+
+// --- 加入流程（F-01） ---------------------------------------------------
+
+export async function updateNickname(supabase: SupabaseClient, viewerId: string, nickname: string) {
+  const { error } = await supabase.from("users").update({ nickname }).eq("id", viewerId);
+  if (error) throw error;
+}
+
+export async function isRoundMember(
+  supabase: SupabaseClient,
+  roundId: string,
+  viewerId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("round_members")
+    .select("user_id")
+    .eq("round_id", roundId)
+    .eq("user_id", viewerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data !== null;
+}
+
+export async function joinRound(supabase: SupabaseClient, roundId: string, viewerId: string) {
+  const { error } = await supabase
+    .from("round_members")
+    .upsert({ round_id: roundId, user_id: viewerId }, { onConflict: "round_id,user_id" });
+  if (error) throw error;
+}
