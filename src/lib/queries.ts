@@ -621,3 +621,219 @@ export async function leaveCircle(supabase: SupabaseClient, circleId: string, vi
     .eq("user_id", viewerId);
   if (error) throw error;
 }
+
+// --- 品牌/店家頁（F-60 ~ F-65） ------------------------------------------
+
+export type ShopListItem = {
+  id: string;
+  name: string;
+  lastOrderedLabel: string | null;
+};
+
+export async function fetchShopList(
+  supabase: SupabaseClient,
+  viewerId: string,
+): Promise<ShopListItem[]> {
+  const [{ data: shopRows, error: shopError }, { data: memberRows, error: memberError }] =
+    await Promise.all([
+      supabase.from("shops").select("id, name").order("name"),
+      supabase
+        .from("round_members")
+        .select("rounds ( shop_id, created_at )")
+        .eq("user_id", viewerId),
+    ]);
+
+  if (shopError) throw shopError;
+  if (memberError) throw memberError;
+
+  const lastOrderedAt = new Map<string, string>();
+  (
+    (memberRows ?? []) as unknown as { rounds: { shop_id: string; created_at: string } | null }[]
+  ).forEach((row) => {
+    if (!row.rounds) return;
+    const prev = lastOrderedAt.get(row.rounds.shop_id);
+    if (!prev || row.rounds.created_at > prev) lastOrderedAt.set(row.rounds.shop_id, row.rounds.created_at);
+  });
+
+  return (shopRows ?? []).map((shop) => ({
+    id: shop.id,
+    name: shop.name,
+    lastOrderedLabel: lastOrderedAt.has(shop.id) ? formatRelativeDate(lastOrderedAt.get(shop.id)!) : null,
+  }));
+}
+
+export type ShopPlatformItem = {
+  id: string;
+  platform: Platform;
+  url: string;
+  supportsPickup: boolean;
+  supportsDelivery: boolean;
+};
+
+export type ShopDetail = {
+  id: string;
+  name: string;
+  platforms: ShopPlatformItem[];
+};
+
+export async function fetchShopDetail(
+  supabase: SupabaseClient,
+  shopId: string,
+): Promise<ShopDetail | null> {
+  const { data: shopRow, error: shopError } = await supabase
+    .from("shops")
+    .select("id, name")
+    .eq("id", shopId)
+    .maybeSingle();
+
+  if (shopError) throw shopError;
+  if (!shopRow) return null;
+
+  const { data: platformRows, error: platformError } = await supabase
+    .from("shop_platforms")
+    .select("id, platform, url, supports_pickup, supports_delivery")
+    .eq("shop_id", shopId);
+
+  if (platformError) throw platformError;
+
+  return {
+    id: shopRow.id,
+    name: shopRow.name,
+    platforms: (platformRows ?? []).map((p) => ({
+      id: p.id,
+      platform: p.platform,
+      url: p.url,
+      supportsPickup: p.supports_pickup,
+      supportsDelivery: p.supports_delivery,
+    })),
+  };
+}
+
+export type DrinkSummary = {
+  id: string;
+  name: string;
+  category: string | null;
+  referencePrice: number | null;
+  avgStars: number | null;
+  reviewCount: number;
+  topSweetness: string | null;
+  topIce: string | null;
+};
+
+function mostCommon(values: (string | null)[]): string | null {
+  const counts = new Map<string, number>();
+  values.forEach((v) => {
+    if (!v) return;
+    counts.set(v, (counts.get(v) ?? 0) + 1);
+  });
+  let best: string | null = null;
+  let bestCount = 0;
+  counts.forEach((count, value) => {
+    if (count > bestCount) {
+      best = value;
+      bestCount = count;
+    }
+  });
+  return best;
+}
+
+export async function fetchShopDrinks(
+  supabase: SupabaseClient,
+  shopId: string,
+): Promise<DrinkSummary[]> {
+  const { data: drinkRows, error: drinkError } = await supabase
+    .from("drinks")
+    .select("id, name, category, reference_price")
+    .eq("shop_id", shopId)
+    .eq("is_discontinued", false)
+    .order("category");
+
+  if (drinkError) throw drinkError;
+  if (!drinkRows || drinkRows.length === 0) return [];
+
+  const drinkIds = drinkRows.map((d) => d.id);
+  const { data: reviewRows, error: reviewError } = await supabase
+    .from("reviews")
+    .select("drink_id, stars, sweetness, ice")
+    .in("drink_id", drinkIds);
+
+  if (reviewError) throw reviewError;
+
+  const reviewsByDrink = new Map<string, { stars: number; sweetness: string | null; ice: string | null }[]>();
+  (reviewRows ?? []).forEach((r) => {
+    const list = reviewsByDrink.get(r.drink_id) ?? [];
+    list.push({ stars: r.stars, sweetness: r.sweetness, ice: r.ice });
+    reviewsByDrink.set(r.drink_id, list);
+  });
+
+  return drinkRows.map((drink) => {
+    const reviews = reviewsByDrink.get(drink.id) ?? [];
+    const avgStars =
+      reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.stars, 0) / reviews.length : null;
+
+    return {
+      id: drink.id,
+      name: drink.name,
+      category: drink.category,
+      referencePrice: drink.reference_price,
+      avgStars,
+      reviewCount: reviews.length,
+      topSweetness: mostCommon(reviews.map((r) => r.sweetness)),
+      topIce: mostCommon(reviews.map((r) => r.ice)),
+    } satisfies DrinkSummary;
+  });
+}
+
+export type ViewerReview = {
+  stars: number;
+  sweetness: string | null;
+  ice: string | null;
+  comment: string | null;
+};
+
+export async function fetchViewerReview(
+  supabase: SupabaseClient,
+  drinkId: string,
+  viewerId: string,
+): Promise<ViewerReview | null> {
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("stars, sweetness, ice, comment")
+    .eq("drink_id", drinkId)
+    .eq("user_id", viewerId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function fetchViewerIsAnonymous(supabase: SupabaseClient, viewerId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("users")
+    .select("is_anonymous")
+    .eq("id", viewerId)
+    .single();
+  if (error) throw error;
+  return data.is_anonymous;
+}
+
+export async function upsertReview(
+  supabase: SupabaseClient,
+  drinkId: string,
+  viewerId: string,
+  review: ViewerReview,
+) {
+  const { error } = await supabase.from("reviews").upsert(
+    {
+      drink_id: drinkId,
+      user_id: viewerId,
+      stars: review.stars,
+      sweetness: review.sweetness,
+      ice: review.ice,
+      comment: review.comment,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "drink_id,user_id" },
+  );
+  if (error) throw error;
+}
