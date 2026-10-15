@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { FaLink } from "react-icons/fa6";
 import { useViewer } from "@/hooks/useViewer";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -165,8 +166,9 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
         <h1 className="flex-1 truncate text-lg font-bold">{round.name}</h1>
         <button
           onClick={handleCopyInviteLink}
-          className="flex-shrink-0 rounded-full border border-border px-2.5 py-1 text-xs font-bold text-text-soft"
+          className="flex flex-shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-bold text-text-soft"
         >
+          <FaLink size={11} />
           {linkCopied ? "已複製" : "邀請連結"}
         </button>
         <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-soft-text">
