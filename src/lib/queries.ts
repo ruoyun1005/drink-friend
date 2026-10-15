@@ -308,6 +308,14 @@ export async function markPaid(
   if (error) throw error;
 }
 
+export async function updateDeadline(supabase: SupabaseClient, roundId: string, deadlineIso: string) {
+  const { error } = await supabase
+    .from("rounds")
+    .update({ deadline_at: deadlineIso })
+    .eq("id", roundId);
+  if (error) throw error;
+}
+
 export async function removeMember(supabase: SupabaseClient, roundId: string, memberId: string) {
   const { error } = await supabase
     .from("round_members")
