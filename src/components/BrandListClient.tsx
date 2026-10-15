@@ -66,16 +66,19 @@ export default function BrandListClient() {
           {shops.length === 0 ? "還沒有店家，新增一個吧" : "找不到符合的店家"}
         </p>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 gap-3">
           {filtered.map((shop) => (
             <Link
               key={shop.id}
               href={`/brands/${shop.id}`}
-              className="flex items-center justify-between gap-2 rounded-xl border border-border bg-surface px-3.5 py-3"
+              className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
             >
-              <span className="font-bold">{shop.name}</span>
+              <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-surface-sunk text-[11px] text-text-soft">
+                店家 logo
+              </div>
+              <span className="truncate font-bold">{shop.name}</span>
               {shop.lastOrderedLabel && (
-                <span className="flex-shrink-0 text-xs text-text-soft">
+                <span className="self-start rounded-full bg-surface-sunk px-2 py-0.5 text-[11px] text-text-soft">
                   {shop.lastOrderedLabel}訂購過
                 </span>
               )}

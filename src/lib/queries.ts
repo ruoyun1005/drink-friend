@@ -785,6 +785,54 @@ export async function fetchShopDetail(
   };
 }
 
+export async function fetchViewerLastOrderedAtShop(
+  supabase: SupabaseClient,
+  shopId: string,
+  viewerId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("round_members")
+    .select("rounds!inner ( shop_id, created_at )")
+    .eq("user_id", viewerId)
+    .eq("rounds.shop_id", shopId)
+    .order("created_at", { foreignTable: "rounds", ascending: false })
+    .limit(1);
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as { rounds: { created_at: string } | null }[];
+  const createdAt = rows[0]?.rounds?.created_at;
+  return createdAt ? formatRelativeDate(createdAt) : null;
+}
+
+export type LastDrinkInfo = { drinkName: string; sweetness: string | null; ice: string | null };
+
+export async function fetchViewerLastDrinkAtShop(
+  supabase: SupabaseClient,
+  shopId: string,
+  viewerId: string,
+): Promise<LastDrinkInfo | null> {
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("sweetness, ice, updated_at, drinks!inner ( name, shop_id )")
+    .eq("user_id", viewerId)
+    .eq("drinks.shop_id", shopId)
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as {
+    sweetness: string | null;
+    ice: string | null;
+    drinks: { name: string } | null;
+  }[];
+  const row = rows[0];
+  if (!row?.drinks) return null;
+
+  return { drinkName: row.drinks.name, sweetness: row.sweetness, ice: row.ice };
+}
+
 export type DrinkSummary = {
   id: string;
   name: string;

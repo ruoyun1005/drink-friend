@@ -27,12 +27,18 @@ function toLocalInputValue(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export default function NewRoundForm({ circleId }: { circleId?: string }) {
+export default function NewRoundForm({
+  circleId,
+  initialShopId,
+}: {
+  circleId?: string;
+  initialShopId?: string;
+}) {
   const router = useRouter();
   const { viewerId, loading: viewerLoading, error: viewerError } = useViewer();
 
   const [shops, setShops] = useState<ShopOption[] | null>(null);
-  const [shopId, setShopId] = useState("");
+  const [shopId, setShopId] = useState(initialShopId ?? "");
   const [newShopName, setNewShopName] = useState("");
   const [platform, setPlatform] = useState<Platform>("you_order");
   const [groupOrderUrl, setGroupOrderUrl] = useState("");
