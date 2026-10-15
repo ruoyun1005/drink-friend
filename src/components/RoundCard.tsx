@@ -74,7 +74,9 @@ export default function RoundCard({ round }: { round: Round }) {
               style={{ backgroundColor: member.ordered ? member.avatarColor : "var(--surface-sunk)" }}
               title={member.nickname}
             >
-              <span className={member.ordered ? "" : "text-text-soft"}>{member.nickname}</span>
+              <span className={member.ordered ? "" : "text-text-soft"}>
+                {member.nickname.slice(0, 1)}
+              </span>
             </div>
           ))}
           <span className="ml-1 text-xs text-text-soft">
