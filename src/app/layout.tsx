@@ -20,17 +20,17 @@ export const metadata: Metadata = {
     title: "揪團訂飲料",
   },
   icons: {
-    icon: "/icon-192.png",
-    apple: "/apple-touch-icon.png",
+    icon: "/icon.svg",
+    apple: "/icon.svg",
   },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="zh-Hant" className={`${notoSansTC.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-bg text-text font-sans">
-        <div className="flex flex-1 flex-col mx-auto w-full max-w-md">
-          <main className="flex-1 overflow-y-auto px-5 pt-4 pb-3">
+      <body className="h-dvh flex flex-col overflow-hidden bg-bg text-text font-sans">
+        <div className="flex flex-1 flex-col mx-auto w-full max-w-md min-h-0">
+          <main className="flex-1 min-h-0 overflow-y-auto px-5 pt-4 pb-3">
             <IosInstallPrompt />
             {children}
           </main>
