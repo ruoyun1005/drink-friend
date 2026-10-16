@@ -11,13 +11,13 @@ const notoSansTC = Noto_Sans_TC({
 });
 
 export const metadata: Metadata = {
-  title: "揪團訂飲料",
+  title: "飲料好朋友",
   description: "朋友揪團訂飲料：湊免運、追蹤點餐狀態、分帳一次搞定。",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "揪團訂飲料",
+    title: "飲料好朋友",
   },
   icons: {
     icon: "/icon.svg",
