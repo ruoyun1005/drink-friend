@@ -18,10 +18,10 @@ cp .env.example .env.local   # 填入 Supabase 專案的 URL 與 anon key
 npm run dev
 ```
 
-資料庫 schema（含 RLS 權限規則）在 [`supabase/schema.sql`](./supabase/schema.sql)，可以直接貼到 Supabase SQL editor 執行。
+資料庫 schema（含 RLS 權限規則）在 [`supabase/schema.sql`](./supabase/schema.sql)，可以直接貼到 Supabase SQL editor 執行；後續修正與新功能的權限異動放在 [`supabase/patches/`](./supabase/patches/)，依編號順序執行。
+
+Web Push 需要在 Vercel 專案設定裡加上 `NEXT_PUBLIC_VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY`、`VAPID_SUBJECT`（用 `npx web-push generate-vapid-keys` 產生），改完環境變數記得手動觸發一次重新部署。
 
 ## 目前狀態
 
-專案骨架與首頁 UI（進行中的團、團友圈、底部導覽）已完成，使用暫時假資料（`src/lib/mockData.ts`）。尚未串接 Supabase 讀寫，其餘頁面（開團表單、團頁面、品牌頁、個人頁）為佔位頁。
-
-底部導覽採用「首頁／找品牌／開新團／續團／我」，不使用漢堡選單（對應 PRD F-72）。
+開團、加入、團頁面（點餐狀態、留言串、分帳、結單時間調整）、團友圈、品牌/店家頁與飲料評價、Web Push 推播（含續團通知、團主提醒）已完成並接上真實 Supabase 資料。底部導覽採用「首頁／找品牌／開新團／續團／我」，不使用漢堡選單（對應 PRD F-72）。
