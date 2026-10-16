@@ -187,7 +187,7 @@ export default function RoundPageClient({ roundId }: { roundId: string }) {
       await addComment(createClient(), roundId, viewerId, content.trim());
       setCommentInput("");
       await reload();
-      if (pushUserIds && pushUserIds.length > 0) {
+      if (round && pushUserIds && pushUserIds.length > 0) {
         sendPush(pushUserIds, round.name, content.trim(), `/rounds/${roundId}`);
       }
     } finally {
