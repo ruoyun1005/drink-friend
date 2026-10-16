@@ -5,6 +5,7 @@ import { useViewer } from "@/hooks/useViewer";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchUserProfile,
+  linkEmailAccount,
   saveDefaultPaymentAccount,
   updateNickname,
   type UserProfile,
@@ -20,6 +21,12 @@ export default function MePageClient() {
   const [paymentAccountInput, setPaymentAccountInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+
+  const [emailInput, setEmailInput] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkSent, setLinkSent] = useState(false);
 
   useEffect(() => {
     if (!viewerId) return;
@@ -81,6 +88,20 @@ export default function MePageClient() {
       setLoadError(err instanceof Error ? err.message : "更新失敗");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleLinkAccount() {
+    if (!emailInput.trim() || passwordInput.length < 6) return;
+    setLinkBusy(true);
+    setLinkError(null);
+    try {
+      await linkEmailAccount(createClient(), emailInput.trim(), passwordInput);
+      setLinkSent(true);
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : "綁定失敗");
+    } finally {
+      setLinkBusy(false);
     }
   }
 
@@ -160,6 +181,52 @@ export default function MePageClient() {
           <div className="h-6 w-11 rounded-full bg-surface-sunk peer-checked:bg-accent" />
           <div className="absolute left-1 h-4 w-4 rounded-full bg-white transition-transform peer-checked:translate-x-5" />
         </label>
+      </section>
+
+      <section className="flex flex-col gap-2.5 rounded-[18px] border border-border bg-surface p-3.5">
+        <div>
+          <p className="text-sm font-bold">帳號綁定</p>
+          <p className="mt-0.5 text-xs text-text-soft">
+            {profile.isAnonymous
+              ? "綁定 email 跟密碼，換裝置或清掉瀏覽器資料都不會弄丟你的團"
+              : "已經綁定帳號，資料不會不見囉"}
+          </p>
+        </div>
+
+        {!profile.isAnonymous ? (
+          <p className="text-sm text-accent-strong">✓ {emailInput || "已綁定"}</p>
+        ) : linkSent ? (
+          <p className="rounded-xl bg-accent-soft px-3.5 py-2.5 text-sm text-accent-soft-text">
+            請到信箱 {emailInput} 點擊驗證連結，完成綁定
+          </p>
+        ) : (
+          <>
+            {linkError && (
+              <p className="rounded-xl bg-warn-soft px-3.5 py-2.5 text-sm text-warn-text">{linkError}</p>
+            )}
+            <input
+              type="email"
+              placeholder="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              className="rounded-xl border border-border bg-bg px-3 py-2.5 text-sm outline-none placeholder:text-text-soft"
+            />
+            <input
+              type="password"
+              placeholder="設定密碼（至少 6 碼）"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              className="rounded-xl border border-border bg-bg px-3 py-2.5 text-sm outline-none placeholder:text-text-soft"
+            />
+            <button
+              disabled={linkBusy || !emailInput.trim() || passwordInput.length < 6}
+              onClick={handleLinkAccount}
+              className="rounded-full bg-accent px-3.5 py-2.5 text-xs font-bold text-white disabled:opacity-50"
+            >
+              {linkBusy ? "綁定中…" : "綁定帳號"}
+            </button>
+          </>
+        )}
       </section>
     </div>
   );
