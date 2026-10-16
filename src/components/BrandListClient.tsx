@@ -66,7 +66,7 @@ export default function BrandListClient() {
           {shops.length === 0 ? "還沒有店家，新增一個吧" : "找不到符合的店家"}
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {filtered.map((shop) => (
             <Link
               key={shop.id}
