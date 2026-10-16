@@ -544,6 +544,7 @@ export type UserProfile = {
   nickname: string;
   pushEnabled: boolean;
   defaultPaymentAccount: string | null;
+  isAnonymous: boolean;
 };
 
 export async function fetchUserProfile(
@@ -552,7 +553,11 @@ export async function fetchUserProfile(
 ): Promise<UserProfile> {
   const [{ data: userRow, error: userError }, { data: settingsRow, error: settingsError }] =
     await Promise.all([
-      supabase.from("users").select("nickname, push_enabled").eq("id", viewerId).single(),
+      supabase
+        .from("users")
+        .select("nickname, push_enabled, is_anonymous")
+        .eq("id", viewerId)
+        .single(),
       supabase
         .from("user_settings")
         .select("default_payment_account")
@@ -567,7 +572,15 @@ export async function fetchUserProfile(
     nickname: userRow.nickname,
     pushEnabled: userRow.push_enabled,
     defaultPaymentAccount: settingsRow?.default_payment_account ?? null,
+    isAnonymous: userRow.is_anonymous,
   };
+}
+
+// 帳號綁定：把目前的匿名帳號升級成有 email/密碼的正式帳號，
+// 保留同一個 user id，所以所有既有資料（團、團友圈、評價…）都還在。
+export async function linkEmailAccount(supabase: SupabaseClient, email: string, password: string) {
+  const { error } = await supabase.auth.updateUser({ email, password });
+  if (error) throw error;
 }
 
 export async function updatePushEnabled(supabase: SupabaseClient, viewerId: string, enabled: boolean) {
