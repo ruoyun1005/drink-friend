@@ -73,8 +73,12 @@ export default function BrandListClient() {
               href={`/brands/${shop.id}`}
               className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
             >
-              <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-surface-sunk text-[11px] text-text-soft">
-                店家 logo
+              <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-surface-sunk p-3">
+                {shop.logoUrl ? (
+                  <img src={shop.logoUrl} alt={shop.name} className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <span className="text-[11px] text-text-soft">店家 logo</span>
+                )}
               </div>
               <span className="truncate font-bold">{shop.name}</span>
               {shop.lastOrderedLabel && (
