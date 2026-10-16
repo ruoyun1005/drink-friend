@@ -583,6 +583,12 @@ export async function linkEmailAccount(supabase: SupabaseClient, email: string, 
   if (error) throw error;
 }
 
+// 換裝置／清過資料後，用已經綁定過的 email + 密碼找回帳號（取代目前的匿名 session）。
+export async function signInWithEmail(supabase: SupabaseClient, email: string, password: string) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
 export async function updatePushEnabled(supabase: SupabaseClient, viewerId: string, enabled: boolean) {
   const { error } = await supabase.from("users").update({ push_enabled: enabled }).eq("id", viewerId);
   if (error) throw error;
