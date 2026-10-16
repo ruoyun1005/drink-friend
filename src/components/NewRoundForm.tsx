@@ -14,6 +14,7 @@ import {
   type ShopOption,
 } from "@/lib/queries";
 import type { PickupMode } from "@/lib/types";
+import { sendPush } from "@/lib/sendPush";
 
 const PLATFORM_LABELS: Record<Platform, string> = {
   you_order: "你訂",
@@ -122,6 +123,16 @@ export default function NewRoundForm({
         pickupPerson: mode === "pickup" ? pickupPerson.trim() : undefined,
         notifyMemberIds: circleId ? Array.from(notifySelection) : undefined,
       });
+
+      if (circleId && notifySelection.size > 0) {
+        const shopName = shops.find((s) => s.id === finalShopId)?.name ?? newShopName.trim();
+        sendPush(
+          Array.from(notifySelection),
+          "續團囉！",
+          `有人揪你一起訂 ${shopName}，點進來看看吧`,
+          `/rounds/${roundId}`,
+        );
+      }
 
       router.push(`/rounds/${roundId}`);
     } catch (err) {
