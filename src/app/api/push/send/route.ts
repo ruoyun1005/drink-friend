@@ -3,11 +3,17 @@ import webpush from "web-push";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!,
-);
+let vapidConfigured = false;
+
+function ensureVapidConfigured() {
+  if (vapidConfigured) return;
+  const { VAPID_SUBJECT, NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY } = process.env;
+  if (!VAPID_SUBJECT || !NEXT_PUBLIC_VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    throw new Error("缺少 VAPID 環境變數，無法發送推播");
+  }
+  webpush.setVapidDetails(VAPID_SUBJECT, NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  vapidConfigured = true;
+}
 
 type SendPushBody = {
   userIds: string[];
@@ -17,6 +23,15 @@ type SendPushBody = {
 };
 
 export async function POST(request: Request) {
+  try {
+    ensureVapidConfigured();
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "推播設定錯誤" },
+      { status: 500 },
+    );
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
