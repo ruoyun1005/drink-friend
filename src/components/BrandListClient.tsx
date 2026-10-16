@@ -71,25 +71,27 @@ export default function BrandListClient() {
             <Link
               key={shop.id}
               href={`/brands/${shop.id}`}
-              className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
+              className="flex flex-col gap-2 overflow-hidden rounded-xl border border-border bg-surface"
             >
-              <div
-                className={`flex aspect-square w-full items-center justify-center rounded-lg p-3 ${
-                  shop.logoUrl ? "" : "bg-surface-sunk"
-                }`}
-              >
-                {shop.logoUrl ? (
-                  <img src={shop.logoUrl} alt={shop.name} className="max-h-full max-w-full object-contain" />
-                ) : (
+              {shop.logoUrl ? (
+                <img
+                  src={shop.logoUrl}
+                  alt={shop.name}
+                  className="aspect-square w-full object-cover"
+                />
+              ) : (
+                <div className="flex aspect-square w-full items-center justify-center bg-surface-sunk">
                   <span className="text-[11px] text-text-soft">店家 logo</span>
+                </div>
+              )}
+              <div className="flex flex-col gap-2 px-3 pb-3">
+                <span className="truncate font-bold">{shop.name}</span>
+                {shop.lastOrderedLabel && (
+                  <span className="self-start rounded-full bg-surface-sunk px-2 py-0.5 text-[11px] text-text-soft">
+                    {shop.lastOrderedLabel}訂購過
+                  </span>
                 )}
               </div>
-              <span className="truncate font-bold">{shop.name}</span>
-              {shop.lastOrderedLabel && (
-                <span className="self-start rounded-full bg-surface-sunk px-2 py-0.5 text-[11px] text-text-soft">
-                  {shop.lastOrderedLabel}訂購過
-                </span>
-              )}
             </Link>
           ))}
         </div>

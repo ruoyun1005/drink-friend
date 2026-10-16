@@ -261,15 +261,13 @@ export default function BrandDetailClient({ shopId }: { shopId: string }) {
       </Link>
 
       <div className="flex items-center gap-3">
-        <div
-          className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-xl p-2 ${
-            shop.logoUrl ? "" : "bg-surface-sunk"
-          }`}
-        >
+        <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl">
           {shop.logoUrl ? (
-            <img src={shop.logoUrl} alt={shop.name} className="max-h-full max-w-full object-contain" />
+            <img src={shop.logoUrl} alt={shop.name} className="h-full w-full object-cover" />
           ) : (
-            <span className="text-[11px] text-text-soft">店家 logo</span>
+            <div className="flex h-full w-full items-center justify-center bg-surface-sunk">
+              <span className="text-[11px] text-text-soft">店家 logo</span>
+            </div>
           )}
         </div>
         <div className="min-w-0">
