@@ -7,6 +7,7 @@ import {
   fetchUserProfile,
   linkEmailAccount,
   saveDefaultPaymentAccount,
+  signInWithEmail,
   updateNickname,
   type UserProfile,
 } from "@/lib/queries";
@@ -22,6 +23,7 @@ export default function MePageClient() {
   const [busy, setBusy] = useState(false);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
 
+  const [accountMode, setAccountMode] = useState<"link" | "login">("link");
   const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [linkBusy, setLinkBusy] = useState(false);
@@ -101,6 +103,20 @@ export default function MePageClient() {
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : "綁定失敗");
     } finally {
+      setLinkBusy(false);
+    }
+  }
+
+  async function handleSignIn() {
+    if (!emailInput.trim() || !passwordInput) return;
+    setLinkBusy(true);
+    setLinkError(null);
+    try {
+      await signInWithEmail(createClient(), emailInput.trim(), passwordInput);
+      // 換成真帳號的 session 了，重新整理讓 useViewer 抓到新的身分。
+      window.location.reload();
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : "登入失敗");
       setLinkBusy(false);
     }
   }
@@ -213,17 +229,36 @@ export default function MePageClient() {
             />
             <input
               type="password"
-              placeholder="設定密碼（至少 6 碼）"
+              placeholder={accountMode === "link" ? "設定密碼（至少 6 碼）" : "密碼"}
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
               className="rounded-xl border border-border bg-bg px-3 py-2.5 text-sm outline-none placeholder:text-text-soft"
             />
+            {accountMode === "link" ? (
+              <button
+                disabled={linkBusy || !emailInput.trim() || passwordInput.length < 6}
+                onClick={handleLinkAccount}
+                className="rounded-full bg-accent px-3.5 py-2.5 text-xs font-bold text-white disabled:opacity-50"
+              >
+                {linkBusy ? "綁定中…" : "綁定帳號"}
+              </button>
+            ) : (
+              <button
+                disabled={linkBusy || !emailInput.trim() || !passwordInput}
+                onClick={handleSignIn}
+                className="rounded-full bg-accent px-3.5 py-2.5 text-xs font-bold text-white disabled:opacity-50"
+              >
+                {linkBusy ? "登入中…" : "登入"}
+              </button>
+            )}
             <button
-              disabled={linkBusy || !emailInput.trim() || passwordInput.length < 6}
-              onClick={handleLinkAccount}
-              className="rounded-full bg-accent px-3.5 py-2.5 text-xs font-bold text-white disabled:opacity-50"
+              onClick={() => {
+                setAccountMode((m) => (m === "link" ? "login" : "link"));
+                setLinkError(null);
+              }}
+              className="self-start text-xs font-bold text-accent-strong underline"
             >
-              {linkBusy ? "綁定中…" : "綁定帳號"}
+              {accountMode === "link" ? "已經有帳號了？登入" : "沒有帳號？綁定這台裝置的團"}
             </button>
           </>
         )}
