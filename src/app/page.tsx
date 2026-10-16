@@ -64,6 +64,9 @@ export default function Home() {
           ＋ 開團
         </Link>
       </div>
+      <Link href="/polls/new" className="self-start text-xs font-bold text-accent-strong underline">
+        還不知道喝什麼？先開投票
+      </Link>
 
       {error && (
         <p className="rounded-xl bg-warn-soft px-3.5 py-2.5 text-sm text-warn-text">{error}</p>
