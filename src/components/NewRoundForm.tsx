@@ -125,7 +125,7 @@ export default function NewRoundForm({
       });
 
       if (circleId && notifySelection.size > 0) {
-        const shopName = shops.find((s) => s.id === finalShopId)?.name ?? newShopName.trim();
+        const shopName = shops?.find((s) => s.id === finalShopId)?.name ?? newShopName.trim();
         sendPush(
           Array.from(notifySelection),
           "續團囉！",
