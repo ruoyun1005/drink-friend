@@ -48,6 +48,12 @@ export default function Home() {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-accent">
+          <img src="/icon-white.svg" alt="" className="h-5 w-5" />
+        </div>
+        <span className="text-sm font-black tracking-tight">揪團訂飲料</span>
+      </div>
       <p className="text-[13px] text-text-soft">嗨，{nickname ?? "…"}</p>
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-[26px] font-black tracking-tight">今天揪誰喝？</h1>
