@@ -984,3 +984,124 @@ export async function upsertReview(
   );
   if (error) throw error;
 }
+
+// --- 投票選店家 -----------------------------------------------------------
+// 開團前還不確定要喝什麼：先讓大家投票選店家，團主結束投票後，
+// 票數最高的店家直接帶進開團表單（/rounds/new?shopId=...），不用重新選一次。
+
+export type PollOption = {
+  id: string;
+  shopId: string;
+  shopName: string;
+  logoUrl: string | null;
+  voteCount: number;
+};
+
+export type PollDetail = {
+  id: string;
+  title: string;
+  status: "open" | "closed";
+  hostId: string;
+  hostNickname: string;
+  circleId: string | null;
+  totalVotes: number;
+  viewerVotedOptionId: string | null;
+  options: PollOption[];
+};
+
+export async function createPoll(
+  supabase: SupabaseClient,
+  input: { hostId: string; title: string; shopIds: string[]; circleId?: string },
+): Promise<string> {
+  const { data: poll, error: pollError } = await supabase
+    .from("polls")
+    .insert({ host_id: input.hostId, title: input.title, circle_id: input.circleId ?? null })
+    .select("id")
+    .single();
+  if (pollError) throw pollError;
+
+  const { error: optionsError } = await supabase
+    .from("poll_options")
+    .insert(input.shopIds.map((shopId) => ({ poll_id: poll.id, shop_id: shopId })));
+  if (optionsError) throw optionsError;
+
+  return poll.id as string;
+}
+
+export async function fetchPollDetail(
+  supabase: SupabaseClient,
+  pollId: string,
+  viewerId: string,
+): Promise<PollDetail | null> {
+  const { data: pollRow, error: pollError } = await supabase
+    .from("polls")
+    .select("id, title, status, host_id, circle_id, host:users!polls_host_id_fkey ( nickname )")
+    .eq("id", pollId)
+    .maybeSingle();
+  if (pollError) throw pollError;
+  if (!pollRow) return null;
+
+  const [{ data: optionRows, error: optionsError }, { data: voteRows, error: votesError }] =
+    await Promise.all([
+      supabase
+        .from("poll_options")
+        .select("id, shop_id, shops ( name, logo_url )")
+        .eq("poll_id", pollId),
+      supabase.from("poll_votes").select("option_id, user_id").eq("poll_id", pollId),
+    ]);
+  if (optionsError) throw optionsError;
+  if (votesError) throw votesError;
+
+  const voteCounts = new Map<string, number>();
+  (voteRows ?? []).forEach((v) => {
+    voteCounts.set(v.option_id, (voteCounts.get(v.option_id) ?? 0) + 1);
+  });
+
+  const viewerVote = (voteRows ?? []).find((v) => v.user_id === viewerId);
+
+  const options = ((optionRows ?? []) as unknown as {
+    id: string;
+    shop_id: string;
+    shops: { name: string; logo_url: string | null } | null;
+  }[]).map((o) => ({
+    id: o.id,
+    shopId: o.shop_id,
+    shopName: o.shops?.name ?? "?",
+    logoUrl: o.shops?.logo_url ?? null,
+    voteCount: voteCounts.get(o.id) ?? 0,
+  }));
+
+  const host = pollRow as unknown as { host: { nickname: string } | null };
+
+  return {
+    id: pollRow.id,
+    title: pollRow.title,
+    status: pollRow.status,
+    hostId: pollRow.host_id,
+    hostNickname: host.host?.nickname ?? "?",
+    circleId: pollRow.circle_id,
+    totalVotes: voteRows?.length ?? 0,
+    viewerVotedOptionId: viewerVote?.option_id ?? null,
+    options,
+  };
+}
+
+export async function votePoll(
+  supabase: SupabaseClient,
+  pollId: string,
+  optionId: string,
+  viewerId: string,
+) {
+  const { error } = await supabase
+    .from("poll_votes")
+    .upsert(
+      { poll_id: pollId, option_id: optionId, user_id: viewerId },
+      { onConflict: "poll_id,user_id" },
+    );
+  if (error) throw error;
+}
+
+export async function closePoll(supabase: SupabaseClient, pollId: string) {
+  const { error } = await supabase.from("polls").update({ status: "closed" }).eq("id", pollId);
+  if (error) throw error;
+}

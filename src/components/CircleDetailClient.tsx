@@ -62,6 +62,12 @@ export default function CircleDetailClient({ circleId }: { circleId: string }) {
         </Link>
         <h1 className="flex-1 truncate text-lg font-bold">{circle.name}</h1>
         <Link
+          href={`/polls/new?circleId=${circleId}`}
+          className="flex-shrink-0 rounded-full border border-border px-3.5 py-2 text-xs font-bold"
+        >
+          先投票
+        </Link>
+        <Link
           href={`/circles/${circleId}/new-round`}
           className="flex-shrink-0 rounded-full bg-accent px-3.5 py-2 text-xs font-bold text-white"
         >
