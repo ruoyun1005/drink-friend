@@ -722,6 +722,7 @@ export async function leaveCircle(supabase: SupabaseClient, circleId: string, vi
 export type ShopListItem = {
   id: string;
   name: string;
+  logoUrl: string | null;
   lastOrderedLabel: string | null;
 };
 
@@ -731,7 +732,7 @@ export async function fetchShopList(
 ): Promise<ShopListItem[]> {
   const [{ data: shopRows, error: shopError }, { data: memberRows, error: memberError }] =
     await Promise.all([
-      supabase.from("shops").select("id, name").order("name"),
+      supabase.from("shops").select("id, name, logo_url").order("name"),
       supabase
         .from("round_members")
         .select("rounds ( shop_id, created_at )")
@@ -753,6 +754,7 @@ export async function fetchShopList(
   return (shopRows ?? []).map((shop) => ({
     id: shop.id,
     name: shop.name,
+    logoUrl: shop.logo_url,
     lastOrderedLabel: lastOrderedAt.has(shop.id) ? formatRelativeDate(lastOrderedAt.get(shop.id)!) : null,
   }));
 }
@@ -768,6 +770,7 @@ export type ShopPlatformItem = {
 export type ShopDetail = {
   id: string;
   name: string;
+  logoUrl: string | null;
   platforms: ShopPlatformItem[];
 };
 
@@ -777,7 +780,7 @@ export async function fetchShopDetail(
 ): Promise<ShopDetail | null> {
   const { data: shopRow, error: shopError } = await supabase
     .from("shops")
-    .select("id, name")
+    .select("id, name, logo_url")
     .eq("id", shopId)
     .maybeSingle();
 
@@ -794,6 +797,7 @@ export async function fetchShopDetail(
   return {
     id: shopRow.id,
     name: shopRow.name,
+    logoUrl: shopRow.logo_url,
     platforms: (platformRows ?? []).map((p) => ({
       id: p.id,
       platform: p.platform,
