@@ -73,7 +73,11 @@ export default function BrandListClient() {
               href={`/brands/${shop.id}`}
               className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
             >
-              <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-surface-sunk p-3">
+              <div
+                className={`flex aspect-square w-full items-center justify-center rounded-lg p-3 ${
+                  shop.logoUrl ? "" : "bg-surface-sunk"
+                }`}
+              >
                 {shop.logoUrl ? (
                   <img src={shop.logoUrl} alt={shop.name} className="max-h-full max-w-full object-contain" />
                 ) : (
